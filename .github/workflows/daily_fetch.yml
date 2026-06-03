@@ -1,15 +1,18 @@
-name: VN Stock Daily Email
+name: VN Stock Daily Fetch
 
 on:
   schedule:
-    # Chạy lúc 13:00 UTC = 20:00 giờ Việt Nam, thứ 2 đến thứ 6
-    # Sau khi fetch (18:00) và Routine phân tích (19:00) đã xong
-    - cron: '0 13 * * 1-5'
+    # Chạy lúc 11:00 UTC = 18:00 giờ Việt Nam, thứ 2 đến thứ 6
+    - cron: '0 11 * * 1-5'
   workflow_dispatch:
+    # Cho phép chạy thủ công từ tab Actions trên GitHub
 
 jobs:
-  send-email:
+  fetch:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Cần để commit file CSV vào repo
 
     steps:
       - name: Checkout repo
@@ -21,11 +24,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install pyyaml
+        run: pip install -r requirements.txt
 
-      - name: Gửi email tóm tắt
-        env:
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: python send_summary.py
+      - name: Fetch stock data
+        run: python fetch_stock.py
+
+      - name: Commit và push CSV
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/stock_data.csv logs/fetch.log
+          git diff --staged --quiet || git commit -m "data: daily fetch $(date +'%Y-%m-%d')"
+          git push
+
